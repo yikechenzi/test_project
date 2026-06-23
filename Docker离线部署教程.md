@@ -1,112 +1,155 @@
 # AI自动化测试平台 - Docker 离线部署教程
 
-> 适用于无法联网的服务器环境，通过在有网的机器上打包镜像，再传输到离线服务器部署。
+> 适用于无法联网的服务器环境，通过在有网的机器上准备基础镜像，再传输到离线服务器部署。
 
 ---
 
 ## 总体流程
 
 ```
-有网机器 ──打包镜像──> 镜像文件(.tar) ──传输──> 离线服务器 ──加载镜像──> 启动服务
+有网机器 ──拉取/打包镜像──> 镜像文件(.tar) ──传输──> 离线服务器 ──加载镜像──> 构建并启动服务
 ```
 
 ---
 
-## 一、在有网的机器上准备
+## 一、在有网的机器上准备基础镜像
 
-### 1.1 安装 Docker（如果还没安装）
+### 1.1 拉取所有基础镜像
 
-**Windows:**
-访问 https://www.docker.com/products/docker-desktop/ 下载安装。
+首先，在有网络的环境中拉取所有需要的基础镜像：
 
-**Ubuntu:**
 ```bash
-sudo apt update
-sudo apt install -y docker.io docker-compose-v2
-sudo usermod -aG docker $USER
+# PostgreSQL 15 数据库
+docker pull postgres:15-alpine
+
+# Redis 7 缓存
+docker pull redis:7-alpine
+
+# Python 3.11 后端运行环境
+docker pull python:3.11-slim
+
+# Node.js 18 前端构建环境
+docker pull node:18-alpine
+
+# Playwright 自动化测试环境
+docker pull mcr.microsoft.com/playwright/python:v1.40.0-jammy
 ```
 
-### 1.2 克隆项目代码
+### 1.2 验证镜像已拉取
+
+```bash
+docker images | grep -E "postgres|redis|python|node|playwright"
+```
+
+你应该看到类似输出：
+
+```
+postgres                              15-alpine    xxxxx   200MB
+redis                                 7-alpine     xxxxx   40MB
+python                                3.11-slim    xxxxx   150MB
+node                                  18-alpine    xxxxx   180MB
+mcr.microsoft.com/playwright/python   v1.40.0-jammy xxxxx  2.1GB
+```
+
+### 1.3 导出镜像为 tar 文件
+
+将拉取到的基础镜像分别打包：
+
+```bash
+# 1. PostgreSQL 数据库镜像
+docker save -o postgres_15-alpine.tar postgres:15-alpine
+
+# 2. Redis 缓存镜像
+docker save -o redis_7-alpine.tar redis:7-alpine
+
+# 3. Python 后端运行环境
+docker save -o python_3.11-slim.tar python:3.11-slim
+
+# 4. Node.js 前端构建环境
+docker save -o node_18-alpine.tar node:18-alpine
+
+# 5. Playwright 自动化测试环境
+docker save -o playwright_python_v1.40.0-jammy.tar mcr.microsoft.com/playwright/python:v1.40.0-jammy
+```
+
+### 1.4 确认镜像文件大小
+
+```bash
+ls -lh *.tar
+```
+
+预计文件大小：
+
+| 镜像文件 | 大小 | 用途 |
+|---------|------|------|
+| postgres_15-alpine.tar | ~200MB | PostgreSQL 数据库 |
+| redis_7-alpine.tar | ~40MB | Redis 缓存 |
+| python_3.11-slim.tar | ~150MB | Python 后端运行环境 |
+| node_18-alpine.tar | ~180MB | Node.js 前端构建环境 |
+| playwright_python_v1.40.0-jammy.tar | ~2.1GB | Playwright 测试环境 |
+| **总计** | **~2.7GB** | |
+
+---
+
+## 二、准备项目代码
+
+### 2.1 克隆项目代码
 
 ```bash
 git clone -b test https://github.com/yikechenzi/test_project.git
 cd test_project/ai-test-platform
 ```
 
-### 1.3 构建所有 Docker 镜像
+### 2.2 查看项目结构
 
 ```bash
-# 在项目根目录执行
-docker compose build
+ls -la
 ```
 
-等待构建完成（首次可能需要 10-30 分钟）。
-
-### 1.4 查看已构建的镜像
-
-```bash
-docker images | grep ai-test
-```
-
-你应该看到类似：
+你应该看到：
 
 ```
-ai-test-platform-backend     latest    xxxxx    2 hours ago    1.5GB
-ai-test-platform-frontend    latest    xxxxx    2 hours ago    800MB
-postgres                     15        xxxxx    ...
-redis                        7-alpine  xxxxx    ...
+ai-test-platform/
+├── backend/              # 后端代码
+├── frontend/             # 前端代码
+├── nginx/                # Nginx 配置
+├── docker-compose.yml    # Docker 编排文件
+├── docker-compose.prod.yml
+├── .env.example          # 环境变量示例
+├── Dockerfile            # 后端镜像构建文件
+├── frontend/Dockerfile   # 前端镜像构建文件
+└── README.md
 ```
-
-### 1.5 导出镜像为 tar 文件
-
-```bash
-# 创建导出目录
-mkdir -p offline-images
-
-# 导出后端镜像
-docker save ai-test-platform-backend:latest -o offline-images/backend.tar
-
-# 导出前端镜像
-docker save ai-test-platform-frontend:latest -o offline-images/frontend.tar
-
-# 导出 PostgreSQL 镜像
-docker save postgres:15 -o offline-images/postgres.tar
-
-# 导出 Redis 镜像
-docker save redis:7-alpine -o offline-images/redis.tar
-
-# 导出 Nginx 镜像（如果使用生产部署）
-docker save nginx:alpine -o offline-images/nginx.tar
-```
-
-### 1.6 确认镜像大小
-
-```bash
-ls -lh offline-images/
-```
-
-预计总大小约 2-4 GB。
 
 ---
 
-## 二、打包传输文件
+## 三、打包传输文件
 
-### 2.1 准备传输包
+### 3.1 创建离线部署包
 
 ```bash
-# 创建离线部署包目录
-mkdir -p offline-package
+# 创建离线部署目录
+mkdir -p ai-test-offline
 
-# 复制项目文件（排除 node_modules 等）
-cp -r backend frontend nginx docker-compose.yml docker-compose.prod.yml .env.example start.bat stop.bat offline-package/
+# 复制项目代码（排除不需要的文件）
+cp -r backend frontend nginx docker-compose.yml docker-compose.prod.yml .env.example start.bat stop.bat ai-test-offline/
 
-# 复制镜像文件
-cp -r offline-images offline-package/
+# 复制基础镜像文件
+mkdir -p ai-test-offline/docker-images
+cp postgres_15-alpine.tar redis_7-alpine.tar python_3.11-slim.tar node_18-alpine.tar playwright_python_v1.40.0-jammy.tar ai-test-offline/docker-images/
 
-# 创建部署脚本
-cat > offline-package/deploy.sh << 'EOF'
+# 创建部署脚本（见下方）
+```
+
+### 3.2 创建一键部署脚本
+
+创建 `ai-test-offline/deploy.sh`：
+
+```bash
 #!/bin/bash
-echo "=== AI自动化测试平台 - 离线部署脚本 ==="
+echo "============================================"
+echo "  AI自动化测试平台 - 离线部署工具"
+echo "============================================"
 echo ""
 
 # 检查 Docker
@@ -115,146 +158,121 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-echo "✅ Docker 已安装: $(docker --version)"
+echo "✅ Docker 版本: $(docker --version)"
 echo ""
 
-# 加载镜像
-echo ">>> 正在加载 Docker 镜像..."
-for img in offline-images/*.tar; do
-    echo "  加载: $img"
-    docker load -i "$img"
+# 加载基础镜像
+echo ">>> 步骤 1/4: 加载 Docker 基础镜像..."
+for img in docker-images/*.tar; do
+    if [ -f "$img" ]; then
+        size=$(du -h "$img" | cut -f1)
+        echo "  📦 加载: $(basename $img) ($size)"
+        docker load -i "$img"
+    fi
 done
-echo "✅ 所有镜像加载完成"
+echo "  ✅ 基础镜像加载完成"
 echo ""
 
 # 复制环境配置
+echo ">>> 步骤 2/4: 配置环境变量..."
 if [ ! -f .env ]; then
     cp .env.example .env
-    echo "✅ 已创建 .env 文件（请根据需要修改）"
+    echo "  ✅ 已创建 .env 文件"
+    
+    # 生成随机 SECRET_KEY
+    if command -v openssl &> /dev/null; then
+        SECRET=$(openssl rand -hex 32)
+        sed -i "s/your-secret-key-here-change-in-production/$SECRET/" .env 2>/dev/null || true
+        echo "  ✅ 已自动生成 SECRET_KEY"
+    fi
+else
+    echo "  ⚠️  .env 文件已存在，跳过创建"
 fi
+
+# 构建应用镜像
+echo ""
+echo ">>> 步骤 3/4: 构建应用镜像（使用基础镜像）..."
+echo "  这可能需要 5-15 分钟，请耐心等待..."
+docker compose build
+echo "  ✅ 应用镜像构建完成"
 
 # 启动服务
 echo ""
-echo ">>> 是否立即启动服务？(y/n)"
-read answer
-if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
-    docker compose up -d
-    echo ""
-    echo "✅ 服务已启动！"
-    echo "  前端: http://localhost:5173"
-    echo "  后端: http://localhost:8000"
-    echo "  API文档: http://localhost:8000/docs"
-else
-    echo "跳过启动，你可以稍后手动执行: docker compose up -d"
-fi
-EOF
+echo ">>> 步骤 4/4: 启动服务..."
+docker compose up -d
 
-chmod +x offline-package/deploy.sh
+echo ""
+echo "  等待服务启动..."
+sleep 10
 
-# 创建 Windows 部署脚本
-cat > offline-package/deploy.bat << 'EOF'
-@echo off
-echo === AI自动化测试平台 - 离线部署脚本 ===
-echo.
-
-:: 检查 Docker
-docker --version >nul 2>&1
-if errorlevel 1 (
-    echo 未检测到 Docker，请先安装 Docker Desktop
-    pause
-    exit /b 1
-)
-
-echo 正在加载 Docker 镜像...
-for %%f in (offline-images\*.tar) do (
-    echo   加载: %%f
-    docker load -i "%%f"
-)
-echo 所有镜像加载完成
-echo.
-
-:: 复制环境配置
-if not exist .env (
-    copy .env.example .env
-    echo 已创建 .env 文件
-)
-
-:: 启动服务
-set /p answer="是否立即启动服务？(y/n): "
-if /i "%answer%"=="y" (
-    docker compose up -d
-    echo.
-    echo 服务已启动！
-    echo   前端: http://localhost:5173
-    echo   后端: http://localhost:8000
-)
-pause
-EOF
+echo ""
+echo "============================================"
+echo "  🎉 部署完成！"
+echo "============================================"
+echo ""
+echo "  前端界面: http://localhost:5173"
+echo "  后端 API: http://localhost:8000"
+echo "  API 文档: http://localhost:8000/docs"
+echo ""
+echo "  默认管理员账号:"
+echo "    用户名: admin"
+echo "    密码: admin123"
+echo ""
+echo "  常用命令:"
+echo "    查看状态: docker compose ps"
+echo "    查看日志: docker compose logs -f"
+echo "    停止服务: docker compose down"
+echo "    重启服务: docker compose restart"
+echo ""
 ```
 
-### 2.2 压缩传输包
+### 3.3 压缩传输包
 
 ```bash
-# Linux/Mac
-tar -czf ai-test-offline.tar.gz offline-package/
-
-# Windows PowerShell
-# 使用 7-Zip 或 WinRAR 压缩 offline-package 文件夹
+# 压缩整个离线部署包
+tar -czf ai-test-offline.tar.gz ai-test-offline/
 ```
 
-### 2.3 传输到离线服务器
+预计压缩后大小约 **1-1.5GB**。
 
-将 `ai-test-offline.tar.gz` 文件通过以下方式传输到离线服务器：
+### 3.4 传输到离线服务器
 
-- **U盘/移动硬盘**：直接复制
+通过以下方式将 `ai-test-offline.tar.gz` 传输到离线服务器：
+
+- **U盘/移动硬盘**：直接复制文件
 - **局域网传输**：
   ```bash
   scp ai-test-offline.tar.gz user@离线服务器IP:/home/user/
   ```
-- **Windows 共享文件夹**
+- **内网共享文件夹**
 
 ---
 
-## 三、在离线服务器上部署
+## 四、在离线服务器上部署
 
-### 3.1 安装 Docker（离线安装）
+### 4.1 安装 Docker（如果还没有安装）
 
-如果离线服务器没有安装 Docker，需要离线安装：
+如果离线服务器没有 Docker，需要先在有网机器下载离线安装包：
 
 **Ubuntu 离线安装 Docker：**
 
-在有网的机器上下载 Docker 安装包：
-
 ```bash
-# 下载 Docker 离线包（访问 https://download.docker.com/linux/static/stable/）
+# 在有网机器下载
 wget https://download.docker.com/linux/static/stable/x86_64/docker-24.0.7.tgz
-```
 
-将 `docker-24.0.7.tgz` 拷贝到离线服务器后：
-
-```bash
-# 解压
+# 拷贝到离线服务器后执行
 tar xzf docker-24.0.7.tgz
+sudo cp docker/* /usr/bin/
 
-# 移动到系统目录
-sudo mv docker/* /usr/bin/
-
-# 创建 Docker 服务
+# 创建 systemd 服务
 sudo cat > /etc/systemd/system/docker.service << 'EOF'
 [Unit]
 Description=Docker Application Container Engine
-After=network-online.target firewalld.service
-Wants=network-online.target
+After=network-online.target
 
 [Service]
 Type=notify
 ExecStart=/usr/bin/dockerd
-ExecReload=/bin/kill -s HUP $MAINPID
-LimitNOFILE=infinity
-LimitNPROC=infinity
-TimeoutStartSec=0
-Delegate=yes
-KillMode=process
 Restart=on-failure
 
 [Install]
@@ -272,182 +290,223 @@ newgrp docker
 docker --version
 ```
 
-### 3.2 解压部署包
+### 4.2 解压离线部署包
 
 ```bash
 # 解压
 tar -xzf ai-test-offline.tar.gz
-cd offline-package
+cd ai-test-offline
 
 # 查看内容
 ls -la
 ```
 
-### 3.3 执行部署脚本
+### 4.3 执行一键部署
 
 ```bash
-# 一键部署
+# 添加执行权限
+chmod +x deploy.sh
+
+# 执行部署
 ./deploy.sh
 ```
 
-### 3.4 或手动执行
+### 4.4 或手动逐步部署
 
 ```bash
-# 1. 加载所有镜像
-for img in offline-images/*.tar; do
-    docker load -i "$img"
-done
+# 1. 加载基础镜像
+cd ai-test-offline
+docker load -i docker-images/postgres_15-alpine.tar
+docker load -i docker-images/redis_7-alpine.tar
+docker load -i docker-images/python_3.11-slim.tar
+docker load -i docker-images/node_18-alpine.tar
+docker load -i docker-images/playwright_python_v1.40.0-jammy.tar
 
-# 2. 确认镜像已加载
+# 2. 验证镜像
 docker images
 
-# 3. 复制环境配置
+# 3. 配置环境变量
 cp .env.example .env
+nano .env  # 编辑配置，修改 SECRET_KEY
 
-# 4. 编辑配置（可选）
-nano .env
+# 4. 构建应用镜像（使用已加载的基础镜像）
+docker compose build
 
 # 5. 启动服务
 docker compose up -d
+
+# 6. 查看服务状态
+docker compose ps
 ```
 
 ---
 
-## 四、一键部署脚本（完整版）
+## 五、验证部署
 
-以下是一个完整的一键部署脚本，保存为 `offline-deploy.sh`：
+### 5.1 检查容器状态
 
 ```bash
-#!/bin/bash
-set -e
+docker compose ps
+```
 
-echo "╔════════════════════════════════════════════╗"
-echo "║   AI自动化测试平台 - 离线部署工具          ║"
-echo "╚════════════════════════════════════════════╝"
-echo ""
+正常应该看到以下容器都是 `Up` 状态：
 
-# 检查是否 root
-if [ "$EUID" -ne 0 ]; then
-    echo "⚠️  建议使用 root 或 sudo 运行此脚本"
-    echo "   当前用户需要有 docker 组权限"
-fi
+| 服务 | 说明 | 端口 |
+|------|------|------|
+| postgres | PostgreSQL 数据库 | 5432 |
+| redis | Redis 缓存 | 6379 |
+| backend | 后端 API | 8000 |
+| frontend | 前端界面 | 5173 |
+| playwright | 自动化测试环境 | - |
 
-# 检查 Docker
-if ! command -v docker &> /dev/null; then
-    echo "❌ Docker 未安装"
-    echo "   请先手动安装 Docker 或使用离线安装包"
-    exit 1
-fi
+### 5.2 检查服务端口
 
-echo "✅ Docker: $(docker --version)"
+```bash
+# 检查端口是否监听
+ss -tlnp | grep -E "5173|8000"
+```
 
-# 检查 docker compose
-if docker compose version &> /dev/null; then
-    COMPOSE="docker compose"
-    echo "✅ Docker Compose: $(docker compose version)"
-elif command -v docker-compose &> /dev/null; then
-    COMPOSE="docker-compose"
-    echo "✅ docker-compose: $(docker-compose --version)"
-else
-    echo "❌ Docker Compose 未安装"
-    exit 1
-fi
+### 5.3 测试后端 API
 
-echo ""
-echo ">>> 步骤 1/4: 加载 Docker 镜像"
-echo "─────────────────────────────────"
+```bash
+curl http://localhost:8000/health
+```
 
-IMAGE_DIR="./offline-images"
-if [ ! -d "$IMAGE_DIR" ]; then
-    echo "❌ 未找到 offline-images 目录"
-    echo "   请确保镜像文件在当前目录的 offline-images 文件夹中"
-    exit 1
-fi
+应该返回：
 
-for img in "$IMAGE_DIR"/*.tar; do
-    if [ -f "$img" ]; then
-        size=$(du -h "$img" | cut -f1)
-        echo "  📦 加载: $(basename $img) ($size)"
-        docker load -i "$img" 2>&1 | grep -v "^$" | sed 's/^/     /'
-    fi
-done
+```json
+{"status":"healthy"}
+```
 
-echo "  ✅ 镜像加载完成"
-echo ""
-docker images --format "  {{.Repository}}:{{.Tag}} ({{.Size}})" | grep -E "ai-test|postgres|redis|nginx"
-echo ""
+### 5.4 访问前端
 
-echo ">>> 步骤 2/4: 配置环境"
-echo "─────────────────────────────────"
+打开浏览器访问：
 
-if [ ! -f .env ]; then
-    cp .env.example .env
-    echo "  ✅ 已创建 .env 文件"
-    
-    # 自动生成 SECRET_KEY
-    SECRET=$(openssl rand -hex 32 2>/dev/null || head -c 64 /dev/urandom | xxd -p | head -1)
-    sed -i "s/your-secret-key-here-change-in-production/$SECRET/" .env 2>/dev/null || true
-    echo "  ✅ 已自动生成 SECRET_KEY"
-else
-    echo "  ⚠️  .env 文件已存在，跳过创建"
-fi
+- **前端界面**：http://localhost:5173
+- **后端 API**：http://localhost:8000
+- **API 文档**：http://localhost:8000/docs
 
-echo ""
-echo ">>> 步骤 3/4: 启动服务"
-echo "─────────────────────────────────"
+---
 
-$COMPOSE up -d
+## 六、登录和使用
 
-echo ""
-echo "  等待服务启动..."
-sleep 5
+### 6.1 登录系统
 
-echo ""
-echo ">>> 步骤 4/4: 验证服务"
-echo "─────────────────────────────────"
+1. 打开浏览器访问 http://localhost:5173
+2. 输入默认管理员账号：
+   - **用户名**：`admin`
+   - **密码**：`admin123`
+3. 点击 **登录**
 
-# 检查容器状态
-echo "  容器状态:"
-$COMPOSE ps --format "  {{.Name}}\t{{.Status}}" 2>/dev/null || $COMPOSE ps
+> ⚠️ **安全提示**：首次登录后请立即修改默认密码！
 
-echo ""
+### 6.2 基本使用流程
 
-# 检查端口
-for port in 5173 8000; do
-    if ss -tlnp 2>/dev/null | grep -q ":$port " || netstat -tlnp 2>/dev/null | grep -q ":$port "; then
-        echo "  ✅ 端口 $port 已监听"
-    else
-        echo "  ⚠️  端口 $port 未监听（服务可能还在启动中）"
-    fi
-done
-
-echo ""
-echo "╔════════════════════════════════════════════╗"
-echo "║   🎉 部署完成！                            ║"
-echo "╠════════════════════════════════════════════╣"
-echo "║                                            ║"
-echo "║   前端界面: http://localhost:5173           ║"
-echo "║   后端 API: http://localhost:8000           ║"
-echo "║   API 文档: http://localhost:8000/docs      ║"
-echo "║                                            ║"
-echo "║   默认账号: admin                          ║"
-echo "║   默认密码: admin123                       ║"
-echo "║                                            ║"
-echo "║   常用命令:                                 ║"
-echo "║     查看日志: docker compose logs -f        ║"
-echo "║     停止服务: docker compose down           ║"
-echo "║     重启服务: docker compose restart        ║"
-echo "║                                            ║"
-echo "╚════════════════════════════════════════════╝"
+```
+1. 公司管理 → 创建公司
+2. 项目管理 → 创建项目
+3. 测试用例 → 编写测试脚本
+4. 测试执行 → 执行自动化测试
+5. 测试报告 → 查看测试报告
+6. 用户管理 → 添加用户并绑定项目
 ```
 
 ---
 
-## 五、常见问题
+## 七、离线环境 Docker 安装完整指南
+
+### 7.1 Ubuntu 20.04/22.04/24.04
+
+**在有网机器准备：**
+
+```bash
+# 下载 Docker 静态二进制包
+wget https://download.docker.com/linux/static/stable/x86_64/docker-24.0.7.tgz
+
+# 下载 Docker Compose 插件
+wget https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-linux-x86_64 -O docker-compose
+```
+
+**在离线服务器上安装：**
+
+```bash
+# 1. 安装 Docker
+tar xzf docker-24.0.7.tgz
+sudo cp docker/* /usr/bin/
+
+# 2. 安装 Docker Compose
+chmod +x docker-compose
+sudo cp docker-compose /usr/local/bin/
+
+# 3. 创建 Docker 服务
+sudo tee /etc/systemd/system/docker.service > /dev/null << 'EOF'
+[Unit]
+Description=Docker Application Container Engine
+After=network-online.target firewalld.service containerd.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/dockerd
+ExecReload=/bin/kill -s HUP $MAINPID
+LimitNOFILE=infinity
+LimitNPROC=infinity
+TimeoutStartSec=0
+Delegate=yes
+KillMode=process
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 4. 启动 Docker
+sudo systemctl daemon-reload
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# 5. 配置用户权限
+sudo usermod -aG docker $USER
+newgrp docker
+
+# 6. 验证
+docker --version
+docker compose version
+```
+
+### 7.2 CentOS/RHEL 7/8/9
+
+**在有网机器准备：**
+
+```bash
+# 下载 RPM 包
+yumdownloader --resolve docker-ce docker-ce-cli containerd.io
+
+# 或使用离线包
+wget https://download.docker.com/linux/centos/9/x86_64/stable/Packages/docker-ce-24.0.7-1.el9.x86_64.rpm
+wget https://download.docker.com/linux/centos/9/x86_64/stable/Packages/docker-ce-cli-24.0.7-1.el9.x86_64.rpm
+wget https://download.docker.com/linux/centos/9/x86_64/stable/Packages/containerd.io-1.6.25-3.1.el9.x86_64.rpm
+```
+
+**在离线服务器上安装：**
+
+```bash
+# 安装 RPM 包
+sudo rpm -ivh docker-ce-*.rpm docker-ce-cli-*.rpm containerd.io-*.rpm
+
+# 启动 Docker
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+```
+
+---
+
+## 八、常见问题
 
 ### Q1: docker load 报错 "no space left on device"
 
-磁盘空间不足，清理磁盘或扩展分区：
+磁盘空间不足：
 
 ```bash
 # 查看磁盘使用
@@ -456,106 +515,181 @@ df -h
 # 清理 Docker 无用资源
 docker system prune -af
 
-# 清理旧镜像
-docker image prune -af
+# 清理后重新加载
+docker load -i docker-images/postgres_15-alpine.tar
 ```
 
-### Q2: 加载镜像很慢
+### Q2: 镜像加载后 docker compose build 失败
+
+检查基础镜像是否正确加载：
 
 ```bash
-# 增加 Docker 存储驱动配置
-sudo mkdir -p /etc/docker
-sudo tee /etc/docker/daemon.json << 'EOF'
-{
-  "storage-driver": "overlay2"
-}
-EOF
-
-sudo systemctl restart docker
-```
-
-### Q3: 离线服务器缺少依赖库
-
-```bash
-# 在有网机器上下载依赖并打包
-sudo apt download $(apt-cache depends docker.io | grep Depends | sed 's/.*ends: //' | tr '\n' ' ')
-tar -czf docker-deps.tar.gz *.deb
-
-# 在离线服务器上安装
-tar -xzf docker-deps.tar.gz
-sudo dpkg -i *.deb
-```
-
-### Q4: 镜像标签不对
-
-```bash
-# 查看镜像实际标签
+# 查看所有镜像
 docker images
 
-# 重新打标签（如果需要）
-docker tag 旧镜像名:旧标签 新镜像名:新标签
+# 确认以下镜像存在
+docker images | grep postgres
+docker images | grep redis
+docker images | grep python
+docker images | grep node
+docker images | grep playwright
+```
+
+如果标签不对，重新打标签：
+
+```bash
+docker tag postgres:15-alpine postgres:15-alpine
+```
+
+### Q3: docker compose 命令找不到
+
+Docker Compose 未安装或路径不对：
+
+```bash
+# 检查是否安装
+which docker-compose
+which docker
+
+# 使用 docker-compose（旧版本）
+docker-compose up -d
+
+# 或使用 docker compose（新版本）
+docker compose up -d
+```
+
+### Q4: Playwright 容器启动失败
+
+确保已加载 Playwright 基础镜像：
+
+```bash
+# 检查镜像
+docker images | grep playwright
+
+# 如果不存在，重新加载
+docker load -i docker-images/playwright_python_v1.40.0-jammy.tar
+```
+
+### Q5: 端口冲突
+
+```bash
+# 查看端口占用
+sudo lsof -i :5173
+sudo lsof -i :8000
+
+# 杀掉占用进程
+sudo kill -9 <PID>
+
+# 或修改 docker-compose.yml 中的端口映射
+```
+
+### Q6: 服务器外网无法访问
+
+```bash
+# 1. 检查防火墙
+sudo ufw status
+sudo ufw allow 5173/tcp
+sudo ufw allow 8000/tcp
+
+# 2. 云服务器需要在控制台安全组中开放端口
+
+# 3. 确认 Docker 端口映射
+docker compose ps
 ```
 
 ---
 
-## 六、部署文件清单
+## 九、停止和清理
+
+### 9.1 停止服务
+
+```bash
+# 停止所有容器（保留数据）
+docker compose stop
+
+# 停止并移除容器（保留数据卷）
+docker compose down
+
+# 停止并删除所有数据（谨慎！）
+docker compose down -v
+```
+
+### 9.2 清理 Docker 资源
+
+```bash
+# 清理未使用的镜像
+docker image prune -f
+
+# 清理所有未使用的资源
+docker system prune -af
+```
+
+---
+
+## 十、常用命令速查
+
+```bash
+# ===== 有网机器上执行 =====
+# 拉取基础镜像
+docker pull postgres:15-alpine
+docker pull redis:7-alpine
+docker pull python:3.11-slim
+docker pull node:18-alpine
+docker pull mcr.microsoft.com/playwright/python:v1.40.0-jammy
+
+# 导出镜像
+docker save -o postgres_15-alpine.tar postgres:15-alpine
+docker save -o redis_7-alpine.tar redis:7-alpine
+docker save -o python_3.11-slim.tar python:3.11-slim
+docker save -o node_18-alpine.tar node:18-alpine
+docker save -o playwright_python_v1.40.0-jammy.tar mcr.microsoft.com/playwright/python:v1.40.0-jammy
+
+# 打包
+tar -czf ai-test-offline.tar.gz ai-test-offline/
+
+# ===== 离线服务器上执行 =====
+# 加载镜像
+docker load -i docker-images/postgres_15-alpine.tar
+docker load -i docker-images/redis_7-alpine.tar
+docker load -i docker-images/python_3.11-slim.tar
+docker load -i docker-images/node_18-alpine.tar
+docker load -i docker-images/playwright_python_v1.40.0-jammy.tar
+
+# 构建应用镜像
+docker compose build
+
+# 启动服务
+docker compose up -d
+
+# 查看日志
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
+---
+
+## 十一、部署文件清单
 
 完整的离线部署包应包含：
 
 ```
-offline-package/
-├── offline-images/          # Docker 镜像文件
-│   ├── backend.tar          # 后端镜像 (~1.5GB)
-│   ├── frontend.tar         # 前端镜像 (~800MB)
-│   ├── postgres.tar         # PostgreSQL (~380MB)
-│   ├── redis.tar            # Redis (~30MB)
-│   └── nginx.tar            # Nginx (~40MB) 可选
-├── backend/                 # 后端代码
-├── frontend/                # 前端代码
-├── nginx/                   # Nginx 配置
-├── docker-compose.yml       # Docker 编排文件
-├── docker-compose.prod.yml  # 生产编排文件
-├── .env.example             # 环境变量示例
-├── deploy.sh                # Linux 部署脚本
-├── deploy.bat               # Windows 部署脚本
-└── README.md                # 说明文档
+ai-test-offline/
+├── docker-images/              # 基础镜像文件
+│   ├── postgres_15-alpine.tar         (~200MB)
+│   ├── redis_7-alpine.tar             (~40MB)
+│   ├── python_3.11-slim.tar           (~150MB)
+│   ├── node_18-alpine.tar             (~180MB)
+│   └── playwright_python_v1.40.0-jammy.tar  (~2.1GB)
+├── backend/                    # 后端代码
+├── frontend/                   # 前端代码
+├── nginx/                      # Nginx 配置
+├── docker-compose.yml          # Docker 编排文件
+├── docker-compose.prod.yml     # 生产编排文件
+├── .env.example                # 环境变量示例
+├── deploy.sh                   # Linux 一键部署脚本
+├── deploy.bat                  # Windows 一键部署脚本
+└── README.md                   # 说明文档
 ```
 
 ---
 
-## 七、快速命令参考
-
-```bash
-# ===== 有网机器上执行 =====
-# 构建镜像
-docker compose build
-
-# 导出镜像
-docker save ai-test-platform-backend:latest -o backend.tar
-docker save ai-test-platform-frontend:latest -o frontend.tar
-docker save postgres:15 -o postgres.tar
-docker save redis:7-alpine -o redis.tar
-
-# 打包
-tar -czf ai-test-offline.tar.gz offline-package/
-
-# ===== 离线服务器上执行 =====
-# 解压
-tar -xzf ai-test-offline.tar.gz
-cd offline-package
-
-# 加载镜像
-docker load -i offline-images/backend.tar
-docker load -i offline-images/frontend.tar
-docker load -i offline-images/postgres.tar
-docker load -i offline-images/redis.tar
-
-# 配置并启动
-cp .env.example .env
-nano .env
-docker compose up -d
-```
-
----
-
-> 如有问题，请检查各容器日志：`docker compose logs -f 服务名`
+> 部署完成后，如有问题请查看日志：`docker compose logs -f 服务名`
