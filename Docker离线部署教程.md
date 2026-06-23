@@ -301,7 +301,76 @@ cd ai-test-offline
 ls -la
 ```
 
-### 4.3 执行一键部署
+### 4.3 导入（加载）Docker 镜像
+
+这是离线部署的关键步骤。在有网机器上打包的镜像 tar 文件，需要在离线服务器上导入到 Docker 中。
+
+**方法1: 逐个加载镜像**
+
+```bash
+# 进入离线部署包目录
+cd ai-test-offline
+
+# 1. 加载 PostgreSQL 数据库镜像
+docker load -i docker-images/postgres_15-alpine.tar
+
+# 2. 加载 Redis 缓存镜像
+docker load -i docker-images/redis_7-alpine.tar
+
+# 3. 加载 Python 后端运行环境
+docker load -i docker-images/python_3.11-slim.tar
+
+# 4. 加载 Node.js 前端构建环境
+docker load -i docker-images/node_18-alpine.tar
+
+# 5. 加载 Playwright 自动化测试环境
+docker load -i docker-images/playwright_python_v1.40.0-jammy.tar
+```
+
+**方法2: 批量加载所有镜像（推荐）**
+
+```bash
+# 使用循环一次性加载所有镜像
+cd ai-test-offline
+for img in docker-images/*.tar; do
+    echo "正在加载: $img"
+    docker load -i "$img"
+done
+```
+
+**方法3: 使用 shell 单行命令**
+
+```bash
+cd ai-test-offline && ls docker-images/*.tar | xargs -I {} docker load -i {}
+```
+
+**验证镜像是否加载成功：**
+
+```bash
+# 查看所有 Docker 镜像
+docker images
+
+# 应该能看到以下镜像
+docker images | grep -E "postgres|redis|python|node|playwright"
+```
+
+正常输出示例：
+
+```
+REPOSITORY                                TAG           IMAGE ID       CREATED        SIZE
+postgres                                  15-alpine     xxxxx          2 weeks ago    200MB
+redis                                     7-alpine      xxxxx          2 weeks ago    40MB
+python                                    3.11-slim     xxxxx          2 weeks ago    150MB
+node                                      18-alpine     xxxxx          2 weeks ago    180MB
+mcr.microsoft.com/playwright/python       v1.40.0-jammy xxxxx          3 weeks ago    2.1GB
+```
+
+> **注意**：
+> - `docker load` 命令会恢复镜像及其标签（tag）
+> - 加载过程可能需要几分钟，特别是较大的镜像（如 playwright 2.1GB）
+> - 如果加载失败，检查磁盘空间：`df -h`
+
+### 4.4 执行一键部署
 
 ```bash
 # 添加执行权限
@@ -311,16 +380,14 @@ chmod +x deploy.sh
 ./deploy.sh
 ```
 
-### 4.4 或手动逐步部署
+### 4.5 或手动逐步部署
 
 ```bash
-# 1. 加载基础镜像
+# 1. 加载基础镜像（详见 4.3 节）
 cd ai-test-offline
-docker load -i docker-images/postgres_15-alpine.tar
-docker load -i docker-images/redis_7-alpine.tar
-docker load -i docker-images/python_3.11-slim.tar
-docker load -i docker-images/node_18-alpine.tar
-docker load -i docker-images/playwright_python_v1.40.0-jammy.tar
+for img in docker-images/*.tar; do
+    docker load -i "$img"
+done
 
 # 2. 验证镜像
 docker images
