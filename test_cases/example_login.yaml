@@ -1,0 +1,39 @@
+name: "用户登录与信息查询"
+description: "测试用户登录的正常和异常场景，以及登录后的信息查询"
+tags: [登录, 用户模块]
+
+# ===== Setup =====
+# 每个用例执行前的准备工作（自然语言描述）
+setup:
+  - "发送 POST 请求到 /api/users，body 包含用户名 testuser、密码 Test1234、邮箱 test@example.com，创建测试用户"
+
+# ===== 测试用例 =====
+cases:
+  - name: "正常登录"
+    steps:
+      - action: "发送 POST 请求到 /api/login，body 包含用户名 testuser 和密码 Test1234"
+        expect: "返回状态码 200，响应中包含 token 字段，且 token 不为空"
+        save: { token: "$.data.token" }
+
+      - action: "使用上一步的 token，发送 GET 请求到 /api/users/profile，Authorization 头部携带 Bearer token"
+        expect: "返回状态码 200，用户名为 testuser，邮箱为 test@example.com"
+
+  - name: "错误密码登录"
+    steps:
+      - action: "发送 POST 请求到 /api/login，body 包含用户名 testuser 和密码 wrongpass"
+        expect: "返回状态码 401，响应中 message 字段包含「密码错误」或「unauthorized」"
+
+  - name: "不存在的用户登录"
+    steps:
+      - action: "发送 POST 请求到 /api/login，body 包含用户名 nonexistent 和密码 anypassword"
+        expect: "返回状态码 404 或 401，提示用户不存在"
+
+  - name: "缺少必填字段"
+    steps:
+      - action: "发送 POST 请求到 /api/login，body 只包含用户名 testuser，不包含密码"
+        expect: "返回状态码 400，提示参数错误"
+
+# ===== Teardown =====
+# 用例执行后的清理工作
+teardown:
+  - "发送 DELETE 请求到 /api/users/testuser，删除测试用户"

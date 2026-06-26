@@ -1,0 +1,17 @@
+base_url: "http://localhost:8000"       # 被测服务地址
+
+# ===== AI 引擎配置 =====
+# provider: "claude" 或 "mimo"（MiMo 2.5 Pro，OpenAI 兼容接口）
+provider: "mimo"
+
+# --- Claude 配置 ---
+claude_api_key: "your-claude-api-key"   # Claude API Key（请替换）
+claude_model: "claude-sonnet-4-6"       # 使用的模型
+
+# --- MiMo 2.5 Pro 配置（OpenAI 兼容） ---
+mimo_api_key: "sk-ci71qgpfe10xcs4891qiwfghc2spgr003yz9x9l6ofey6t0q"
+mimo_model: "mimo-v2.5-pro"             # 模型名称
+mimo_base_url: "https://api.xiaomimimo.com/v1"  # 小米 MiMo 官方 API
+
+timeout: 30                              # HTTP 请求超时（秒）
+max_retries: 3                           # AI 调用最大重试次数

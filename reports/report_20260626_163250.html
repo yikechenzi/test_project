@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 测试报告 — 2026-06-26 16:32:50</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 10px; color: #1a1a2e; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+        .summary { display: flex; gap: 20px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
+        .summary-card { background: white; border-radius: 12px; padding: 20px 30px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); min-width: 120px; }
+        .summary-card .number { font-size: 2.5em; font-weight: bold; }
+        .summary-card .label { color: #666; font-size: 0.9em; margin-top: 4px; }
+        .pass .number { color: #22c55e; }
+        .fail .number { color: #ef4444; }
+        .skip .number { color: #eab308; }
+        .total .number { color: #3b82f6; }
+        .rate .number { color: #8b5cf6; }
+        .rate-bar { background: #e5e7eb; border-radius: 8px; height: 16px; margin: 10px 0; overflow: hidden; }
+        .rate-bar .fill { height: 100%; border-radius: 8px; transition: width 0.3s; }
+        .rate-bar .fill.high { background: #22c55e; }
+        .rate-bar .fill.low { background: #ef4444; }
+        .test-suite { background: white; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
+        .suite-header { padding: 16px 20px; background: #f8f9fa; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
+        .suite-header h3 { margin: 0; font-size: 1.1em; }
+        .suite-header .tags { display: flex; gap: 6px; margin-top: 6px; }
+        .suite-header .tag { background: #e0e7ff; color: #4338ca; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; }
+        .case { border-bottom: 1px solid #f0f0f0; }
+        .case:last-child { border-bottom: none; }
+        .case-header { padding: 12px 20px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+        .case-header:hover { background: #fafafa; }
+        .status-badge { padding: 3px 10px; border-radius: 4px; font-size: 0.8em; font-weight: 600; }
+        .status-pass { background: #dcfce7; color: #166534; }
+        .status-fail { background: #fef2f2; color: #991b1b; }
+        .status-skip { background: #fef9c3; color: #854d0e; }
+        .case-name { flex: 1; font-weight: 500; }
+        .case-time { color: #999; font-size: 0.85em; }
+        .case-details { padding: 0 20px 16px; display: none; }
+        .case-details.open { display: block; }
+        .step { background: #f8f9fa; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; font-size: 0.9em; }
+        .step-action { font-weight: 500; margin-bottom: 4px; }
+        .step-expect { color: #666; }
+        .step-response { margin-top: 8px; background: #1e1e2e; color: #cdd6f4; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 0.85em; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+        .step-status { display: inline-block; margin-top: 6px; }
+        .step-status.pass { color: #22c55e; }
+        .step-status.fail { color: #ef4444; }
+        .failure-analysis { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; margin-top: 10px; }
+        .failure-analysis h4 { color: #991b1b; margin-bottom: 6px; }
+        .failure-analysis p { margin: 4px 0; font-size: 0.9em; }
+        footer { text-align: center; color: #999; margin-top: 30px; padding: 20px; font-size: 0.85em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI 自动化测试报告</h1>
+        <p class="subtitle">2026-06-26 16:32:50</p>
+
+        <div class="summary">
+            <div class="summary-card total">
+                <div class="number">4</div>
+                <div class="label">总用例</div>
+            </div>
+            <div class="summary-card pass">
+                <div class="number">4</div>
+                <div class="label">通过</div>
+            </div>
+            <div class="summary-card fail">
+                <div class="number">0</div>
+                <div class="label">失败</div>
+            </div>
+            <div class="summary-card skip">
+                <div class="number">0</div>
+                <div class="label">跳过</div>
+            </div>
+            <div class="summary-card rate">
+                <div class="number">100.0%</div>
+                <div class="label">通过率</div>
+            </div>
+        </div>
+
+        <div class="rate-bar">
+            <div class="fill high" style="width: 100.0%;"></div>
+        </div>
+
+        
+        <div class="test-suite">
+            <div class="suite-header">
+                <h3>用户登录与信息查询</h3>
+                
+                <div class="tags">
+                    
+                    <span class="tag">登录</span>
+                    
+                    <span class="tag">用户模块</span>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="case">
+                <div class="case-header" onclick="this.nextElementSibling.classList.toggle('open')">
+                    <span class="status-badge status-pass">PASS</span>
+                    <span class="case-name">正常登录</span>
+                    <span class="case-time">39.1s</span>
+                </div>
+                <div class="case-details">
+                    
+                    <div class="step">
+                        <div class="step-action">📋 发送 POST 请求到 /api/login，body 包含用户名 testuser 和密码 Test1234</div>
+                        <div class="step-expect">✅ 预期: 返回状态码 200，响应中包含 token 字段，且 token 不为空</div>
+                        
+                        <div class="step-response">{'status_code': 200, 'headers': {'Server': 'Werkzeug/3.1.3 Python/3.11.3', 'Date': 'Fri, 26 Jun 2026 08:31:18 GMT', 'Content-Type': 'application/json', 'Content-Length': '80', 'Connection': 'close'}, 'body': {'data': {'token': 'token_testuser_abc123'}, 'message': '登录成功'}, 'elapsed_ms': 18.896}</div>
+                        
+                        <div class="step-status pass">
+                            ✓ 通过
+                        </div>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step-action">📋 使用上一步的 token，发送 GET 请求到 /api/users/profile，Authorization 头部携带 Bearer token</div>
+                        <div class="step-expect">✅ 预期: 返回状态码 200，用户名为 testuser，邮箱为 test@example.com</div>
+                        
+                        <div class="step-response">{'status_code': 200, 'headers': {'Server': 'Werkzeug/3.1.3 Python/3.11.3', 'Date': 'Fri, 26 Jun 2026 08:31:37 GMT', 'Content-Type': 'application/json', 'Content-Length': '60', 'Connection': 'close'}, 'body': {'data': {'email': 'test@example.com', 'username': 'testuser'}}, 'elapsed_ms': 27.459}</div>
+                        
+                        <div class="step-status pass">
+                            ✓ 通过
+                        </div>
+                    </div>
+                    
+                    
+                </div>
+            </div>
+            
+            <div class="case">
+                <div class="case-header" onclick="this.nextElementSibling.classList.toggle('open')">
+                    <span class="status-badge status-pass">PASS</span>
+                    <span class="case-name">错误密码登录</span>
+                    <span class="case-time">17.41s</span>
+                </div>
+                <div class="case-details">
+                    
+                    <div class="step">
+                        <div class="step-action">📋 发送 POST 请求到 /api/login，body 包含用户名 testuser 和密码 wrongpass</div>
+                        <div class="step-expect">✅ 预期: 返回状态码 401，响应中 message 字段包含「密码错误」或「unauthorized」</div>
+                        
+                        <div class="step-response">{'status_code': 401, 'headers': {'Server': 'Werkzeug/3.1.3 Python/3.11.3', 'Date': 'Fri, 26 Jun 2026 08:31:55 GMT', 'Content-Type': 'application/json', 'Content-Length': '39', 'Connection': 'close'}, 'body': {'message': '密码错误'}, 'elapsed_ms': 25.107}</div>
+                        
+                        <div class="step-status pass">
+                            ✓ 通过
+                        </div>
+                    </div>
+                    
+                    
+                </div>
+            </div>
+            
+            <div class="case">
+                <div class="case-header" onclick="this.nextElementSibling.classList.toggle('open')">
+                    <span class="status-badge status-pass">PASS</span>
+                    <span class="case-name">不存在的用户登录</span>
+                    <span class="case-time">13.43s</span>
+                </div>
+                <div class="case-details">
+                    
+                    <div class="step">
+                        <div class="step-action">📋 发送 POST 请求到 /api/login，body 包含用户名 nonexistent 和密码 anypassword</div>
+                        <div class="step-expect">✅ 预期: 返回状态码 404 或 401，提示用户不存在</div>
+                        
+                        <div class="step-response">{'status_code': 404, 'headers': {'Server': 'Werkzeug/3.1.3 Python/3.11.3', 'Date': 'Fri, 26 Jun 2026 08:32:09 GMT', 'Content-Type': 'application/json', 'Content-Length': '45', 'Connection': 'close'}, 'body': {'message': '用户不存在'}, 'elapsed_ms': 10.855}</div>
+                        
+                        <div class="step-status pass">
+                            ✓ 通过
+                        </div>
+                    </div>
+                    
+                    
+                </div>
+            </div>
+            
+            <div class="case">
+                <div class="case-header" onclick="this.nextElementSibling.classList.toggle('open')">
+                    <span class="status-badge status-pass">PASS</span>
+                    <span class="case-name">缺少必填字段</span>
+                    <span class="case-time">20.88s</span>
+                </div>
+                <div class="case-details">
+                    
+                    <div class="step">
+                        <div class="step-action">📋 发送 POST 请求到 /api/login，body 只包含用户名 testuser，不包含密码</div>
+                        <div class="step-expect">✅ 预期: 返回状态码 400，提示参数错误</div>
+                        
+                        <div class="step-response">{'status_code': 400, 'headers': {'Server': 'Werkzeug/3.1.3 Python/3.11.3', 'Date': 'Fri, 26 Jun 2026 08:32:28 GMT', 'Content-Type': 'application/json', 'Content-Length': '77', 'Connection': 'close'}, 'body': {'message': '缺少必填字段: username 或 password'}, 'elapsed_ms': 31.291}</div>
+                        
+                        <div class="step-status pass">
+                            ✓ 通过
+                        </div>
+                    </div>
+                    
+                    
+                </div>
+            </div>
+            
+        </div>
+        
+
+        <footer>
+            由 AI 测试框架自动生成 | Powered by Claude
+        </footer>
+    </div>
+</body>
+</html>
